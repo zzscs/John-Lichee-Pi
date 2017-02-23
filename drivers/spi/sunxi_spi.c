@@ -36,18 +36,28 @@ struct sunxi_spi_priv {
 
 DECLARE_GLOBAL_DATA_PTR;
 
-static void sunxi_spi_setup_pinmux(unsigned int pin_func)
+static int sunxi_spi_parse_pins(struct udevice *bus)
 {
-	unsigned int pin;
+	unsigned int pin_func = SUNXI_GPC_SPI0;
+	int ret;
 
-	for (pin = SUNXI_GPC(0); pin <= SUNXI_GPC(2); pin++)
-		sunxi_gpio_set_cfgpin(pin, pin_func);
+	if (IS_ENABLED(CONFIG_MACH_SUN50I))
+		pin_func = SUN50I_GPC_SPI0;
 
-	if (IS_ENABLED(CONFIG_MACH_SUN4I) || IS_ENABLED(CONFIG_MACH_SUN7I)) {
-		sunxi_gpio_set_cfgpin(SUNXI_GPC(23), pin_func);
-	} else {
-		sunxi_gpio_set_cfgpin(SUNXI_GPC(3), pin_func);
+	ret = sunxi_gpio_setup_dt_pins(gd->fdt_blob, bus->of_offset, NULL,
+		pin_func);
+
+	if (ret < 0) {
+		printf("WARNING: sunxi-spi: cannot find pinctrl-0 node\n");
+		return ret;
 	}
+
+	if (!ret) {
+		printf("WARNING: sunxi-spi: cannot find pins property\n");
+		return -2;
+	}
+
+	return ret;
 }
 
 static void sunxi_spi_enable_clock(struct udevice *bus)
@@ -170,10 +180,7 @@ static int sunxi_spi_claim_bus(struct udevice *dev)
 
 	debug("%s: claiming bus\n", __func__);
 
-	if (IS_ENABLED(CONFIG_MACH_SUN50I))
-		pin_func = SUN50I_GPC_SPI0;
-
-	sunxi_spi_setup_pinmux(pin_func);
+	sunxi_spi_parse_pins(bus);
 	sunxi_spi_enable_clock(bus);
 	setbits_le32(&priv->regs->glb_ctl, SUNXI_SPI_CTL_MASTER |
 		SUNXI_SPI_CTL_ENABLE | SUNXI_SPI_CTL_TP | SUNXI_SPI_CTL_SRST);
