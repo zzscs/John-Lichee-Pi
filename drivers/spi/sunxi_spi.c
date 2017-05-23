@@ -273,6 +273,9 @@ static int sunxi_spi_xfer(struct udevice *dev, unsigned int bitlen,
 		}
 
 		len -= nbytes;
+
+		if (tx_buf)
+			tx_buf += nbytes;
 	}
 
 	if (flags & SPI_XFER_END)
