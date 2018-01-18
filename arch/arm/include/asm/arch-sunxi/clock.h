@@ -18,7 +18,7 @@
 #if defined(CONFIG_MACH_SUN8I_A83T)
 #include <asm/arch/clock_sun8i_a83t.h>
 #elif defined(CONFIG_MACH_SUN6I) || defined(CONFIG_MACH_SUN8I) || \
-      defined(CONFIG_MACH_SUN50I)
+      defined(CONFIG_MACH_SUN50I) || defined(CONFIG_MACH_SUNIV)
 #include <asm/arch/clock_sun6i.h>
 #elif defined(CONFIG_MACH_SUN9I)
 #include <asm/arch/clock_sun9i.h>
