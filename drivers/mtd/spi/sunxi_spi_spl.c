@@ -33,17 +33,19 @@
  * supported at the moment.
  */
 
+static u32 spi0_base;
+
 /*****************************************************************************/
 /* SUN4I variant of the SPI controller                                       */
 /*****************************************************************************/
 
-#define SUN4I_SPI0_CCTL             (0x01C05000 + 0x1C)
-#define SUN4I_SPI0_CTL              (0x01C05000 + 0x08)
-#define SUN4I_SPI0_RX               (0x01C05000 + 0x00)
-#define SUN4I_SPI0_TX               (0x01C05000 + 0x04)
-#define SUN4I_SPI0_FIFO_STA         (0x01C05000 + 0x28)
-#define SUN4I_SPI0_BC               (0x01C05000 + 0x20)
-#define SUN4I_SPI0_TC               (0x01C05000 + 0x24)
+#define SUN4I_SPI0_CCTL             (spi0_base + 0x1C)
+#define SUN4I_SPI0_CTL              (spi0_base + 0x08)
+#define SUN4I_SPI0_RX               (spi0_base + 0x00)
+#define SUN4I_SPI0_TX               (spi0_base + 0x04)
+#define SUN4I_SPI0_FIFO_STA         (spi0_base + 0x28)
+#define SUN4I_SPI0_BC               (spi0_base + 0x20)
+#define SUN4I_SPI0_TC               (spi0_base + 0x24)
 
 #define SUN4I_CTL_ENABLE            BIT(0)
 #define SUN4I_CTL_MASTER            BIT(1)
@@ -55,15 +57,15 @@
 /* SUN6I variant of the SPI controller                                       */
 /*****************************************************************************/
 
-#define SUN6I_SPI0_CCTL             (0x01C68000 + 0x24)
-#define SUN6I_SPI0_GCR              (0x01C68000 + 0x04)
-#define SUN6I_SPI0_TCR              (0x01C68000 + 0x08)
-#define SUN6I_SPI0_FIFO_STA         (0x01C68000 + 0x1C)
-#define SUN6I_SPI0_MBC              (0x01C68000 + 0x30)
-#define SUN6I_SPI0_MTC              (0x01C68000 + 0x34)
-#define SUN6I_SPI0_BCC              (0x01C68000 + 0x38)
-#define SUN6I_SPI0_TXD              (0x01C68000 + 0x200)
-#define SUN6I_SPI0_RXD              (0x01C68000 + 0x300)
+#define SUN6I_SPI0_CCTL             (spi0_base + 0x24)
+#define SUN6I_SPI0_GCR              (spi0_base + 0x04)
+#define SUN6I_SPI0_TCR              (spi0_base + 0x08)
+#define SUN6I_SPI0_FIFO_STA         (spi0_base + 0x1C)
+#define SUN6I_SPI0_MBC              (spi0_base + 0x30)
+#define SUN6I_SPI0_MTC              (spi0_base + 0x34)
+#define SUN6I_SPI0_BCC              (spi0_base + 0x38)
+#define SUN6I_SPI0_TXD              (spi0_base + 0x200)
+#define SUN6I_SPI0_RXD              (spi0_base + 0x300)
 
 #define SUN6I_CTL_ENABLE            BIT(0)
 #define SUN6I_CTL_MASTER            BIT(1)
@@ -81,6 +83,7 @@
 
 #define SPI0_CLK_DIV_BY_2           0x1000
 #define SPI0_CLK_DIV_BY_4           0x1001
+#define SPI0_CLK_DIV_BY_32          0x100f
 
 /*****************************************************************************/
 
@@ -114,11 +117,17 @@ static void spi0_enable_clock(void)
 	/* Open the SPI0 gate */
 	setbits_le32(CCM_AHB_GATING0, (1 << AHB_GATE_OFFSET_SPI0));
 
+#ifndef CONFIG_MACH_SUNIV
 	/* Divide by 4 */
 	writel(SPI0_CLK_DIV_BY_4, IS_ENABLED(CONFIG_SUNXI_GEN_SUN6I) ?
 				  SUN6I_SPI0_CCTL : SUN4I_SPI0_CCTL);
 	/* 24MHz from OSC24M */
 	writel((1 << 31), CCM_SPI0_CLK);
+#else
+	/* Divide by 32, clock source is AHB clock 200MHz */
+	writel(SPI0_CLK_DIV_BY_32, IS_ENABLED(CONFIG_SUNXI_GEN_SUN6I) ?
+				  SUN6I_SPI0_CCTL : SUN4I_SPI0_CCTL);
+#endif
 
 	if (IS_ENABLED(CONFIG_SUNXI_GEN_SUN6I)) {
 		/* Enable SPI in the master mode and do a soft reset */
@@ -147,8 +156,10 @@ static void spi0_disable_clock(void)
 		clrbits_le32(SUN4I_SPI0_CTL, SUN4I_CTL_MASTER |
 					     SUN4I_CTL_ENABLE);
 
+#ifndef CONFIG_MACH_SUNIV
 	/* Disable the SPI0 clock */
 	writel(0, CCM_SPI0_CLK);
+#endif
 
 	/* Close the SPI0 gate */
 	clrbits_le32(CCM_AHB_GATING0, (1 << AHB_GATE_OFFSET_SPI0));
@@ -165,6 +176,19 @@ static void spi0_init(void)
 
 	if (IS_ENABLED(CONFIG_MACH_SUN50I))
 		pin_function = SUN50I_GPC_SPI0;
+
+	if (IS_ENABLED(CONFIG_MACH_SUNIV))
+		pin_function = SUNIV_GPC_SPI0;
+
+	/*
+	 * suniv comes with a sun6i-style SPI controller at the
+	 * sun4i SPI base address
+	 */
+	if (IS_ENABLED(CONFIG_SUNXI_GEN_SUN6I) &&
+	    !IS_ENABLED(CONFIG_MACH_SUNIV))
+		spi0_base = 0x01c68000;
+	else
+		spi0_base = 0x01c05000;
 
 	spi0_pinmux_setup(pin_function);
 	spi0_enable_clock();
