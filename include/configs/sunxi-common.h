@@ -170,6 +170,8 @@
 #define CONFIG_SYS_MMC_ENV_DEV		0
 #endif
 #define CONFIG_SYS_MMC_MAX_DEVICE	4
+#elif defined(CONFIG_ENV_IS_IN_SPI_FLASH)
+#define CONFIG_ENV_SECT_SIZE 0x1000
 #elif defined(CONFIG_ENV_IS_NOWHERE)
 #define CONFIG_ENV_SIZE			(128 << 10)
 #endif
